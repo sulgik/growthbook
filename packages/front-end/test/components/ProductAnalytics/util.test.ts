@@ -81,8 +81,8 @@ describe("getAvailableDimensionColumns", () => {
     expect(
       getAvailableDimensionColumns(factTableDataset(), () => ft, noFactMetric),
     ).toEqual([
-      { column: "browser", name: "Browser" },
-      { column: "country", name: "Country" },
+      { column: "browser", name: "Browser", datatype: "string" },
+      { column: "country", name: "Country", datatype: "string" },
     ]);
   });
 
@@ -98,7 +98,7 @@ describe("getAvailableDimensionColumns", () => {
 
     expect(
       getAvailableDimensionColumns(factTableDataset(), () => ft, noFactMetric),
-    ).toEqual([{ column: "country", name: "Country" }]);
+    ).toEqual([{ column: "country", name: "Country", datatype: "string" }]);
   });
 
   it("expands string JSON fields into dot-notation columns", () => {
@@ -119,9 +119,9 @@ describe("getAvailableDimensionColumns", () => {
     expect(
       getAvailableDimensionColumns(factTableDataset(), () => ft, noFactMetric),
     ).toEqual([
-      { column: "country", name: "Country" },
-      { column: "props.city", name: "Props.city" },
-      { column: "props.plan", name: "Props.plan" },
+      { column: "country", name: "Country", datatype: "string" },
+      { column: "props.city", name: "Props.city", datatype: "string" },
+      { column: "props.plan", name: "Props.plan", datatype: "string" },
     ]);
   });
 
@@ -139,7 +139,7 @@ describe("getAvailableDimensionColumns", () => {
 
     expect(
       getAvailableDimensionColumns(factTableDataset(), () => ft, noFactMetric),
-    ).toEqual([{ column: "country", name: "Country" }]);
+    ).toEqual([{ column: "country", name: "Country", datatype: "string" }]);
   });
 
   it("falls back to the column id when a JSON column has no name", () => {
@@ -154,7 +154,9 @@ describe("getAvailableDimensionColumns", () => {
 
     expect(
       getAvailableDimensionColumns(factTableDataset(), () => ft, noFactMetric),
-    ).toEqual([{ column: "props.plan", name: "props.plan" }]);
+    ).toEqual([
+      { column: "props.plan", name: "props.plan", datatype: "string" },
+    ]);
   });
 
   it("maps data_source columnTypes to string columns", () => {
@@ -182,7 +184,7 @@ describe("getAvailableDimensionColumns", () => {
 
     expect(
       getAvailableDimensionColumns(dataset, () => null, noFactMetric),
-    ).toEqual([{ column: "country", name: "country" }]);
+    ).toEqual([{ column: "country", name: "country", datatype: "string" }]);
   });
 
   it("intersects columns across multiple metrics in a metric dataset", () => {
@@ -230,7 +232,7 @@ describe("getAvailableDimensionColumns", () => {
         getFactTableById,
         getFactMetricById,
       ),
-    ).toEqual([{ column: "country", name: "Country" }]);
+    ).toEqual([{ column: "country", name: "Country", datatype: "string" }]);
   });
 
   it("excludes columns a ratio metric's denominator table can't resolve", () => {
@@ -274,7 +276,7 @@ describe("getAvailableDimensionColumns", () => {
         getFactTableById,
         getFactMetricById,
       ),
-    ).toEqual([{ column: "country", name: "Country" }]);
+    ).toEqual([{ column: "country", name: "Country", datatype: "string" }]);
   });
 });
 
@@ -368,6 +370,50 @@ describe("getColumnTopValues", () => {
         getFactMetricById,
       ).sort(),
     ).toEqual(["CA", "MX", "US"]);
+  });
+
+  it("includes top values from a ratio metric's denominator fact table, not just the numerator", () => {
+    const dataset: ExplorationDataset = {
+      type: "metric",
+      values: [
+        {
+          type: "metric",
+          name: "a",
+          rowFilters: [],
+          metricId: "met_a",
+          unit: null,
+          denominatorUnit: null,
+        },
+      ],
+    };
+
+    const numeratorFt = makeFactTable([
+      makeColumn({ column: "country", topValues: ["US"] }),
+    ]);
+    const denominatorFt = makeFactTable([
+      makeColumn({ column: "country", topValues: ["CA"] }),
+    ]);
+
+    const getFactTableById = (id: string) =>
+      id === "ft_numerator"
+        ? numeratorFt
+        : id === "ft_denominator"
+          ? denominatorFt
+          : null;
+    const getFactMetricById = () =>
+      ({
+        numerator: { factTableId: "ft_numerator" },
+        denominator: { factTableId: "ft_denominator" },
+      }) as FactMetricInterface;
+
+    expect(
+      getColumnTopValues(
+        dataset,
+        "country",
+        getFactTableById,
+        getFactMetricById,
+      ).sort(),
+    ).toEqual(["CA", "US"]);
   });
 });
 
